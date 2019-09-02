@@ -55,6 +55,14 @@ func (ms *manualShifter) Apply(src map[string]interface{}, opts ...ShiftOption) 
 }
 
 func NewShifter(mapping map[string]string) (Shifter, error) {
+	multiMap := make(map[string][]string, len(mapping))
+	for src, dst := range mapping {
+		multiMap[src] = []string{dst}
+	}
+	return NewShifterV2(multiMap)
+}
+
+func NewShifterV2(mapping map[string][]string) (Shifter, error) {
 	elems, err := compile(mapping)
 	if err != nil {
 		return nil, err
@@ -65,61 +73,70 @@ func NewShifter(mapping map[string]string) (Shifter, error) {
 	return shifter, nil
 }
 
-func compile(mapping map[string]string) ([]elem, error) {
+func compile(mapping map[string][]string) ([]elem, error) {
 	arr := make([]elem, 0, len(mapping))
-	for srcPath, dstPath := range mapping {
-
-		srcParts := strings.Split(srcPath, ".")
-		dstParts := strings.Split(dstPath, ".")
-
-		srcArrayIndexes := getArraysIndexes(srcParts)
-		dstArrayIndexes := getArraysIndexes(dstParts)
-		if len(srcArrayIndexes) != len(dstArrayIndexes) {
-			return nil, fmt.Errorf("invalid array mapping: %s -> %s", srcPath, dstPath)
-		}
-
-		var terms []term
-		if len(srcArrayIndexes) == 0 {
-			terms = compileTerms(srcParts, dstParts)
-		} else {
-			prevSrcArrayIndex := 0
-			prevDstArrayIndex := 0
-			terms = make([]term, 0)
-			for i, srcArrayIndex := range srcArrayIndexes {
-				dstArrayIndex := dstArrayIndexes[i]
-
-				currentSrc := srcParts[prevSrcArrayIndex:srcArrayIndex]
-				currentDst := dstParts[prevDstArrayIndex:dstArrayIndex]
-				terms = append(terms, compileTerms(currentSrc, currentDst)...)
-
-				mapping := make([]string, 0)
-				lastPart := strings.Replace(dstParts[dstArrayIndex], "[]", "", -1)
-				if len(terms) == 0 {
-					mapping = append(mapping, dstParts[prevSrcArrayIndex:dstArrayIndex]...)
-					mapping = append(mapping, lastPart)
-				} else {
-					mapping = append(mapping, lastPart)
-				}
-				terms = append(terms, newTerm(
-					strings.Replace(srcParts[srcArrayIndex], "[]", "", -1),
-					true,
-					mapping,
-				))
-
-				prevSrcArrayIndex = srcArrayIndex + 1
-				prevDstArrayIndex = dstArrayIndex + 1
+	for srcPath, dstArray := range mapping {
+		for _, dstPath := range dstArray {
+			terms, err := compilePair(srcPath, dstPath)
+			if err != nil {
+				return nil, err
 			}
-
-			currentSrc := srcParts[prevSrcArrayIndex:]
-			currentDst := dstParts[prevDstArrayIndex:]
-			terms = append(terms, compileTerms(currentSrc, currentDst)...)
+			e := elem{terms: terms, origSrc: srcPath, origDst: dstPath}
+			arr = append(arr, e)
 		}
-
-		e := elem{terms: terms, origSrc: srcPath, origDst: dstPath}
-		arr = append(arr, e)
 	}
 
 	return arr, nil
+}
+
+func compilePair(srcPath, dstPath string) ([]term, error) {
+	srcParts := strings.Split(srcPath, ".")
+	dstParts := strings.Split(dstPath, ".")
+
+	srcArrayIndexes := getArraysIndexes(srcParts)
+	dstArrayIndexes := getArraysIndexes(dstParts)
+	if len(srcArrayIndexes) != len(dstArrayIndexes) {
+		return nil, fmt.Errorf("invalid array mapping: %s -> %s", srcPath, dstPath)
+	}
+
+	var terms []term
+	if len(srcArrayIndexes) == 0 {
+		terms = compileTerms(srcParts, dstParts)
+	} else {
+		prevSrcArrayIndex := 0
+		prevDstArrayIndex := 0
+		terms = make([]term, 0)
+		for i, srcArrayIndex := range srcArrayIndexes {
+			dstArrayIndex := dstArrayIndexes[i]
+
+			currentSrc := srcParts[prevSrcArrayIndex:srcArrayIndex]
+			currentDst := dstParts[prevDstArrayIndex:dstArrayIndex]
+			terms = append(terms, compileTerms(currentSrc, currentDst)...)
+
+			mapping := make([]string, 0)
+			lastPart := strings.Replace(dstParts[dstArrayIndex], "[]", "", -1)
+			if len(terms) == 0 {
+				mapping = append(mapping, dstParts[prevSrcArrayIndex:dstArrayIndex]...)
+				mapping = append(mapping, lastPart)
+			} else {
+				mapping = append(mapping, lastPart)
+			}
+			terms = append(terms, newTerm(
+				strings.Replace(srcParts[srcArrayIndex], "[]", "", -1),
+				true,
+				mapping,
+			))
+
+			prevSrcArrayIndex = srcArrayIndex + 1
+			prevDstArrayIndex = dstArrayIndex + 1
+		}
+
+		currentSrc := srcParts[prevSrcArrayIndex:]
+		currentDst := dstParts[prevDstArrayIndex:]
+		terms = append(terms, compileTerms(currentSrc, currentDst)...)
+	}
+
+	return terms, nil
 }
 
 func getArraysIndexes(src []string) []int {
