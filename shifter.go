@@ -11,7 +11,7 @@ type ShiftReporter func(src, dst string, value interface{}) interface{}
 type shiftOp struct {
 	errCatcher func(err error) bool
 	reporter   ShiftReporter
-	mutable    bool
+	base       map[string]interface{}
 }
 
 func WithErrorCatching(f func(err error) bool) ShiftOption {
@@ -26,8 +26,8 @@ func WithReporter(reporter ShiftReporter) ShiftOption {
 	}
 }
 
-func Mutable() ShiftOption {
+func WithBase(base map[string]interface{}) ShiftOption {
 	return func(o *shiftOp) {
-		o.mutable = true
+		o.base = base
 	}
 }
