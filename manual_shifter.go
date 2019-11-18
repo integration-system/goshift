@@ -22,8 +22,8 @@ func (ms *manualShifter) Apply(src map[string]interface{}, opts ...ShiftOption) 
 	}
 
 	var m map[string]interface{}
-	if op.base != nil {
-		m = op.base
+	if op.dst != nil {
+		m = op.dst
 	} else {
 		m = make(map[string]interface{}, len(ms.elems))
 	}
