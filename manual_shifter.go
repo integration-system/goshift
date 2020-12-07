@@ -214,12 +214,15 @@ func shift(terms []term, dstPath []interface{}, src interface{}, report func(pat
 				return shift(terms, dstPath, v[0], report)
 			}
 		}
-	case interface{}:
+	case interface{}: // TODO: возможен ли такой кейс? корректна ли такая проверка?
 		if currentTerm.isArray {
 			return fmt.Errorf("expecting array, got primitive. Key: %s", fmtKey(dstPath, currentTerm))
 		} else {
 			return fmt.Errorf("expecting obj, got primitive. Key: %s", fmtKey(dstPath, currentTerm))
 		}
+	default:
+		// if nested path does not exists in value
+		return shift(terms[1:], append(dstPath, currentTerm.pm...), src, report)
 	}
 
 	return nil
