@@ -222,6 +222,10 @@ func shift(terms []term, dstPath []interface{}, src interface{}, report func(pat
 		}
 	default:
 		// if nested path does not exists in value
+		if terms[0].isArray {
+			return nil
+		}
+
 		return shift(terms[1:], append(dstPath, currentTerm.pm...), src, report)
 	}
 
