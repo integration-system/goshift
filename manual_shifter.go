@@ -171,13 +171,15 @@ func compileTerms(srcParts, dstParts []string) []term {
 		for i, s := range srcParts {
 			isLast := i == len(srcParts)-1
 			if isLast {
-				var mapping []string
+				mapping := make([]string, 0)
 				if len(dstParts) > 0 {
 					mapping = dstParts[i:]
 				}
 				terms[i] = newTerm(s, false, mapping)
 			} else if i < len(dstParts)-1 {
 				terms[i] = newTerm(s, false, []string{dstParts[i]})
+			} else {
+				terms[i] = newTerm(s, false, []string{})
 			}
 		}
 	}

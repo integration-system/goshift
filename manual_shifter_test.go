@@ -77,3 +77,88 @@ func TestManualShifter_ApplyNestedReporter(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func Test_compilePair(t *testing.T) {
+	type args struct {
+		srcPath string
+		dstPath string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []term
+		wantErr bool
+	}{
+		{
+			name: "srcParts == dstParts; with array", args: args{
+				srcPath: "lvl1.lvl2[].name",
+				dstPath: "new_lvl1.new_lvl2[].new_name",
+			}, want: []term{
+				newTerm("lvl1", false, []string{"new_lvl1"}),
+				newTerm("lvl2", true, []string{"new_lvl2"}),
+				newTerm("name", false, []string{"new_name"}),
+			}, wantErr: false,
+		},
+		{
+			name: "srcParts == dstParts; without array", args: args{
+				srcPath: "lvl1.lvl2",
+				dstPath: "new_lvl1.new_lvl2",
+			}, want: []term{
+				newTerm("lvl1", false, []string{"new_lvl1"}),
+				newTerm("lvl2", false, []string{"new_lvl2"}),
+			}, wantErr: false,
+		},
+		{
+			name: "srcParts >= dstParts; with array", args: args{
+				srcPath: "lvl1.lvl2.lvl3arr[].name",
+				dstPath: "new_lvl1[].new_name",
+			}, want: []term{
+				newTerm("lvl1", false, []string{}),
+				newTerm("lvl2", false, []string{}),
+				newTerm("lvl3arr", true, []string{"new_lvl1"}),
+				newTerm("name", false, []string{"new_name"}),
+			}, wantErr: false,
+		},
+		{
+			name: "srcParts >= dstParts; without array", args: args{
+				srcPath: "lvl1.lvl2.lvl3",
+				dstPath: "new_lvl1.new_lvl2",
+			}, want: []term{
+				newTerm("lvl1", false, []string{"new_lvl1"}),
+				newTerm("lvl2", false, []string{}),
+				newTerm("lvl3", false, []string{"new_lvl2"}),
+			}, wantErr: false,
+		},
+		{
+			name: "srcParts <= dstParts; with array", args: args{
+				srcPath: "lvl1.lvl2arr[].name",
+				dstPath: "new_lvl1.new_lvl2.new_lvl3[].new_name",
+			}, want: []term{
+				newTerm("lvl1", false, []string{"new_lvl1", "new_lvl2"}),
+				newTerm("lvl2arr", true, []string{"new_lvl3"}),
+				newTerm("name", false, []string{"new_name"}),
+			}, wantErr: false,
+		},
+		{
+			name: "srcParts <= dstParts; without array", args: args{
+				srcPath: "lvl1.lvl2",
+				dstPath: "new_lvl1.new_lvl2.new_lvl3.new_lvl4",
+			}, want: []term{
+				newTerm("lvl1", false, []string{"new_lvl1"}),
+				newTerm("lvl2", false, []string{"new_lvl2", "new_lvl3", "new_lvl4"}),
+			}, wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := compilePair(tt.args.srcPath, tt.args.dstPath)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("compilePair() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("compilePair() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
